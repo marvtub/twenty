@@ -52,6 +52,7 @@ export default defineConfig(({ command }) => {
   const dtsConfig: PluginOptions = {
     entryRoot: 'src',
     tsconfigPath: tsConfigPath,
+    pathsToAliases: false,
   };
 
   return {
@@ -77,7 +78,8 @@ export default defineConfig(({ command }) => {
       }),
       svgr(),
       dts(dtsConfig),
-      checker(checkersConfig),
+      // Only run checker in dev mode to avoid TS5042 error in builds
+      ...(isBuildCommand ? [] : [checker(checkersConfig)]),
       wyw({
         include: [
           '**/OverflowingTextWithTooltip.tsx',
