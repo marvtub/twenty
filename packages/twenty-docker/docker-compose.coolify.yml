@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: packages/twenty-docker/twenty/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    environment:
+      - SERVER_URL=${SERVER_URL}
+      - PG_DATABASE_URL=postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-default}
+      - REDIS_URL=redis://redis:6379
+      - APP_SECRET=${APP_SECRET}
+      - SIGN_IN_PREFILLED=false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: always
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: packages/twenty-docker/twenty/Dockerfile
+    command: ["yarn", "worker:prod"]
+    environment:
+      - SERVER_URL=${SERVER_URL}
+      - PG_DATABASE_URL=postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-default}
+      - REDIS_URL=redis://redis:6379
+      - APP_SECRET=${APP_SECRET}
+      - DISABLE_DB_MIGRATIONS=true
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    restart: always
+
+  db:
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${PG_DATABASE_USER:-postgres}
+      - POSTGRES_PASSWORD=${PG_DATABASE_PASSWORD}
+      - POSTGRES_DB=${PG_DATABASE_NAME:-default}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DATABASE_USER:-postgres} -d ${PG_DATABASE_NAME:-default}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  redis:
+    image: redis:latest
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+volumes:
+  db-data:
+  server-local-data:
