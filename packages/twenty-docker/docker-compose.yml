@@ -137,6 +137,23 @@ services:
       timeout: 5s
       retries: 10
 
+  backup:
+    image: kartoza/pg-backup:16-3.4
+    volumes:
+      - backup-data:/backups
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${PG_DATABASE_USER:-postgres}
+      POSTGRES_PASS: ${PG_DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${PG_DATABASE_NAME:-default}
+      CRON_SCHEDULE: "0 2 * * *"
+      REMOVE_BEFORE: "7"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
 volumes:
   db-data:
   server-local-data:
+  backup-data:
